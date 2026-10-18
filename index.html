@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-title" content="מלאי">
 <meta name="theme-color" content="#1fa855">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>מלאי מטבח</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap">
 <style>
@@ -24,6 +23,8 @@ h1{font-size:22px;font-weight:600;margin:0}
 .sub{color:var(--muted);font-size:13px}
 .hb{display:flex;gap:6px}
 .btn{border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:14px;border-radius:10px;padding:7px 12px;cursor:pointer}
+button.btn.hot{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button:disabled{opacity:.55}
 details{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}
 summary{display:flex;justify-content:space-between;align-items:center;padding:14px;font-weight:500;cursor:pointer;list-style:none}
 summary::-webkit-details-marker{display:none}
@@ -42,15 +43,11 @@ details[open] summary::after{transform:rotate(-90deg)}
 .sq.open[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
 .sq.end{padding:0 10px;font-size:13px}
 .sq.end[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
-.del{color:var(--warn);font-size:20px;min-width:38px}
 .l2{display:flex;gap:6px;align-items:center}
-.val{min-width:34px;text-align:center;font-weight:600;font-size:18px}
 input{min-width:0;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit;padding:9px 10px;outline:none}
 .l2 input{flex:1}
 .l2 .qty{flex:none;width:72px;text-align:center;font-weight:600;font-size:18px}
-.need{width:100%;margin-top:6px;border-color:var(--warn)}
 input:focus{border-color:var(--accent)}
-.addit{display:block;width:100%;border:0;border-top:1px solid var(--line);background:transparent;color:var(--accent);font:inherit;font-weight:500;padding:13px;cursor:pointer}
 h2{font-size:15px;font-weight:600;margin:22px 0 6px}
 pre{white-space:pre-wrap;word-break:break-word;margin:0;background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:14px;font:inherit;font-size:14px}
 .bar{position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg);border-top:1px solid var(--line);display:flex;gap:8px;justify-content:center}
@@ -58,13 +55,6 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0;background:var(--card);b
 .bar .btn{border-radius:14px;padding:0 14px}
 .toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(10px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
 .toast.on{opacity:1;transform:translateX(-50%)}
-dialog{border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);width:min(92vw,420px);padding:18px}
-dialog::backdrop{background:rgba(0,0,0,.5)}
-dialog label{display:block;font-size:14px;margin:10px 0 4px}
-dialog input{width:100%}
-dialog p{font-size:13px;color:var(--muted);margin:0 0 4px}
-.dr{display:flex;gap:8px;margin-top:16px}
-.dr .copy{padding:11px;font-size:15px}
 button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
@@ -72,176 +62,74 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
 <body>
 <main>
   <header>
-    <div><h1 id="ttl"></h1><div class="sub" id="sync">שמור בטלפון בלבד</div></div>
-    <div class="hb"><button class="btn" id="gear" aria-label="הגדרות סנכרון">⚙︎</button></div>
+    <div><h1 id="ttl"></h1><div class="sub" id="sync">מסתנכרן מול Firebase…</div></div>
+    <div class="hb"><button class="btn" id="upd" disabled>רענן</button></div>
   </header>
   <div id="cats"></div>
   <h2>ההודעה לוואטסאפ</h2><pre id="pv" dir="rtl"></pre>
 </main>
 <div class="bar">
-    <button class="btn" id="wa">שלח</button>
+  <button class="btn" id="wa">שלח</button>
   <button class="copy" id="copy">העתק לוואטסאפ</button>
 </div>
 <div class="toast" id="toast" role="status"></div>
 
-<dialog id="dlg">
-  <h2 style="margin-top:0">סנכרון עם GitHub</h2>
-  <p>הרשימה נשמרת בקובץ בתוך הריפו שלך. הטוקן נשאר בטלפון הזה בלבד.</p>
-  <label for="o">משתמש GitHub</label><input id="o" dir="ltr" autocapitalize="off" autocomplete="off">
-  <label for="r">שם הריפו</label><input id="r" dir="ltr" autocapitalize="off" autocomplete="off">
-  <label for="b">ענף (branch)</label><input id="b" dir="ltr" value="main" autocapitalize="off">
-  <label for="p">קובץ הנתונים</label><input id="p" dir="ltr" value="hs.json" autocapitalize="off">
-  <label for="t">טוקן (Fine-grained, Contents: read and write)</label><input id="t" type="password" dir="ltr" autocomplete="off">
-  <button class="btn" id="cfgLink" style="margin-top:12px;width:100%">העתק קישור הגדרה לטלפון אחר</button>
-  <div class="dr"><button class="copy" id="cfgSave">שמור והתחבר</button><button class="btn" id="cfgOff">נתק</button><button class="btn" id="cfgX">סגור</button></div>
-</dialog>
-
+<script src="firebase-service.js"></script>
 <script>
 var $=function(id){return document.getElementById(id)};
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
 function uid(){return Math.random().toString(36).slice(2,9)}
 function dstr(){var n=new Date();return n.getDate()+'.'+(n.getMonth()+1)}
-var state={edit:false,cats:null};
-try{var raw=JSON.parse(localStorage.getItem('inventory-v2'));if(raw&&Array.isArray(raw.cats))state.cats=raw.cats;}catch(e){}
-var hadLocal=!!state.cats;
-if(!state.cats)state.cats=[];
 
-function mk(n){return {id:uid(),n:n,q:null,o:false,f:false,t:'',s:false,d:''}}
-function norm(data){
-  var cs=data&&(data.cats||data.categories||data);
-  if(!cs||typeof cs!=='object')return null;
-  if(!Array.isArray(cs))cs=Object.keys(cs).map(function(k){return {n:k,items:cs[k]}});
-  var out=cs.map(function(c){
-    var its=c.items||c.list||[];if(!Array.isArray(its))its=[];
-    return {id:uid(),e:c.e||c.emoji||c.icon||'',n:c.n||c.name||c.title||'',open:false,items:its.map(function(i){
-      if(typeof i==='string')return mk(i);
-      var o=mk(i.n||i.name||i.title||'');
-      if(i.q!=null&&i.q!==''&&!isNaN(Number(i.q)))o.q=Number(i.q);if(i.t)o.t=String(i.t);if(i.s)o.s=true;if(i.o)o.o=true;if(i.f)o.f=true;
-      return o;
-    }).filter(function(i){return i.n})};
-  });
-  return out.length?out:null;
-}
-function overlay(cats){
-  var loc=null;try{loc=JSON.parse(localStorage.getItem('inventory-v2'))}catch(e){}
-  if(!loc||!Array.isArray(loc.cats))return;
-  var m={};loc.cats.forEach(function(c){c.items.forEach(function(i){m[c.n+'|'+i.n]=i})});
-  cats.forEach(function(c){c.items.forEach(function(i){var l=m[c.n+'|'+i.n];if(l){i.q=l.q;i.t=l.t||'';i.s=!!l.s;i.o=!!l.o;i.f=!!l.f;i.d=l.d||''}})});
-}
-function ser(){return state.cats.map(function(c){return {e:c.e,n:c.n,items:c.items.map(function(i){
-  if(i.q==null&&!i.t&&!i.s&&!i.o&&!i.f)return i.n;
-  var o={n:i.n};if(i.q!=null)o.q=i.q;if(i.t)o.t=i.t;if(i.s)o.s=true;if(i.o)o.o=true;if(i.f)o.f=true;return o;
-})}})}
-/* ---------- GitHub file sync ---------- */
-var cfg={};try{cfg=JSON.parse(localStorage.getItem('gh-cfg'))||{}}catch(e){}
-(function(){var h=location.hash;if(h.indexOf('#setup=')===0){try{var c=JSON.parse(atob(decodeURIComponent(h.slice(7))));if(c&&c.owner&&c.repo&&c.token){cfg=c;localStorage.setItem('gh-cfg',JSON.stringify(c));}}catch(e){}history.replaceState(null,'',location.pathname);}})();
-var sha=null,timer=null,busy=false,dirty=false,loaded=false,quiet=false;
-function ghOn(){return !!(cfg.owner&&cfg.repo&&cfg.token)}
-function url(){return 'https://api.github.com/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+(cfg.path||'hs.json')}
-function hdr(){return {'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'}}
-function enc(s){var b=new TextEncoder().encode(s),r='';for(var i=0;i<b.length;i++)r+=String.fromCharCode(b[i]);return btoa(r)}
-function dec(s){var r=atob(s.replace(/\n/g,'')),b=new Uint8Array(r.length);for(var i=0;i<r.length;i++)b[i]=r.charCodeAt(i);return new TextDecoder().decode(b)}
-function status(t){$('sync').textContent=t}
-function get(){return fetch(url()+'?ref='+(cfg.branch||'main')+'&t='+Date.now(),{headers:hdr()})}
-var reg={},base={},DEF='[null,false,false,"",false]';
-function key(c,i){return c.n+'|'+i.n}
-function snap(cats){var m={};cats.forEach(function(c){c.items.forEach(function(i){m[key(c,i)]=JSON.stringify([i.q==null?null:i.q,!!i.o,!!i.f,i.t||'',!!i.s])})});return m}
-function dirtyKeys(){var cur=snap(state.cats),d=[];for(var k in cur)if(cur[k]!==(base[k]||DEF))d.push(k);return d}
-function saveBase(){try{localStorage.setItem('inventory-base',JSON.stringify(base))}catch(e){}}
-function sameStruct(a,b){
-  if(a.length!==b.length)return false;
-  for(var x=0;x<a.length;x++){
-    if(a[x].n!==b[x].n||a[x].items.length!==b[x].items.length)return false;
-    for(var y=0;y<a[x].items.length;y++)if(a[x].items[y].n!==b[x].items[y].n)return false;
-  }
-  return true;
-}
-function cp(to,from){to.q=from.q==null?null:from.q;to.o=!!from.o;to.f=!!from.f;to.t=from.t||'';to.s=!!from.s}
-/* merge the remote list into ours; items this phone changed and hasn't saved yet are kept. returns true if the page must be rebuilt */
-function applyRemote(rc,keepDirty){
-  var dk=keepDirty?dirtyKeys():[],rebuild=false;
-  if(!sameStruct(state.cats,rc)){
-    var loc={},opn={};
-    state.cats.forEach(function(c){opn[c.n]=c.open;c.items.forEach(function(i){loc[key(c,i)]=i})});
-    rc.forEach(function(c){c.open=!!opn[c.n];c.items.forEach(function(i){var k=key(c,i);if(dk.indexOf(k)>-1&&loc[k])cp(i,loc[k])})});
-    state.cats=rc;rebuild=true;
-  }else{
-    state.cats.forEach(function(c,ci){c.items.forEach(function(i,ii){
-      var k=key(c,i);if(dk.indexOf(k)>-1)return;
-      var r=rc[ci].items[ii];
-      if((r.q==null?null:r.q)!==i.q||!!r.o!==!!i.o||!!r.f!==!!i.f||(r.t||'')!==(i.t||'')||!!r.s!==!!i.s){cp(i,r);if(reg[k])reg[k]();}
-    })});
-  }
-  base=snap(rc);saveBase();
-  return rebuild;
-}
-async function load(){
-  var r=await get();
-  if(r.status===404){sha=null;return {rc:null}}
-  if(!r.ok)throw new Error(r.status);
-  var j=await r.json();sha=j.sha;
-  var d=null;try{d=JSON.parse(dec(j.content||''))}catch(e){}
-  return {rc:d&&norm(d)};
-}
-async function push(){
-  if(!ghOn()||!loaded)return;
-  if(busy){dirty=true;return}
-  busy=true;dirty=false;status('שומר…');
-  var ok=false;
-  try{
-    for(var t=0;t<3&&!ok;t++){
-      var o=await load();
-      if(o.rc&&applyRemote(o.rc,true)){quiet=true;build();quiet=false;}
-      var body={message:'מלאי '+dstr(),content:enc(JSON.stringify({cats:ser()},null,1)),branch:cfg.branch||'main'};
-      if(sha)body.sha=sha;
-      var w=await fetch(url(),{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},hdr()),body:JSON.stringify(body)});
-      if(w.status===409||w.status===422)continue;
-      if(!w.ok)throw new Error(w.status);
-      sha=(await w.json()).content.sha;base=snap(state.cats);saveBase();ok=true;
+var state={cats:[]};
+
+async function init(){
+  $('sync').textContent = 'טוען נתונים מרשת…';
+  try {
+    // 1. Fetch layout structure from hs.json[cite: 4]
+    var res = await fetch('hs.json?t='+Date.now(), {cache:'no-store'});
+    var data = await res.json();
+    
+    state.cats = (data.cats || []).map(function(c){
+      return {
+        id: uid(),
+        e: c.e || '',
+        n: c.n || '',
+        open: false,
+        items: (c.items || []).map(function(i){
+          return { id: uid(), n: typeof i==='string'?i:i.n, q: null, o: false, f: false, t: '', s: false };
+        })
+      };
+    });
+
+    // 2. Fetch live values straight from Firebase
+    var remoteItems = await fetchFromFirebase();
+    if(remoteItems){
+      state.cats.forEach(function(c){
+        c.items.forEach(function(i){
+          var val = remoteItems[c.n + '|' + i.n];
+          if(val){
+            i.q = val[0];
+            i.o = !!val[1];
+            i.f = !!val[2];
+            i.t = val[3] || '';
+            i.s = !!val[4];
+          }
+        });
+      });
     }
-    status(ok?'נשמר ב-GitHub ✓':'שגיאת שמירה ⚠ (נשמר בטלפון)');
-  }catch(e){status('שגיאת שמירה ⚠ (נשמר בטלפון)')}
-  busy=false;if(dirty)push();
+
+    $('sync').textContent = 'מסונכרן עם Firebase ✓';
+  } catch (e) {
+    $('sync').textContent = 'שגיאה בטעינת הנתונים ⚠';
+  }
+  build();
+  $('upd').disabled = false;
 }
-function save(){
-  try{localStorage.setItem('inventory-v2',JSON.stringify({cats:state.cats}));}catch(e){}
-  if(ghOn()&&loaded&&!quiet){clearTimeout(timer);timer=setTimeout(function(){timer=null;push()},2000);}
-}
-/* every ~15s (and when the app comes back to the screen) pick up what other phones saved */
-async function poll(){
-  if(document.hidden||!ghOn()||!loaded||timer||busy)return;
-  var a=document.activeElement;if(a&&a.tagName==='INPUT')return;
-  try{
-    var prev=sha,o=await load();
-    if(sha===prev||!o.rc)return;
-    if(applyRemote(o.rc,true)){quiet=true;build();quiet=false;}
-    quiet=true;update();quiet=false;status('מסונכרן ✓');
-  }catch(e){}
-}
-async function readOnly(){
-  try{
-    var r=await fetch((cfg.path||'hs.json')+'?t='+Date.now());
-    if(r.ok){var d=await r.json();
-      var cats=norm(d);if(cats){overlay(cats);state.cats=cats;quiet=true;build();quiet=false;status('נטען מ-hs.json · הכמויות נשמרות בטלפון, חבר טוקן כדי לשמור לקובץ');return}}
-  }catch(e){}
-  status('שמור בטלפון בלבד');
-}
-async function connect(){
-  if(!ghOn()){await readOnly();return}
-  try{
-    status('טוען מ-GitHub…');
-    var o=await load(),hadBase=false;
-    try{var b=JSON.parse(localStorage.getItem('inventory-base'));if(b&&typeof b==='object'){base=b;hadBase=true}}catch(e){}
-    if(!hadBase)base={};
-    loaded=true;
-    if(o.rc){applyRemote(o.rc,hadBase);quiet=true;build();quiet=false;status('מסונכרן ✓');if(dirtyKeys().length)push();}
-    else if(state.cats.length){push();}
-    else status('hs.json ריק או לא נמצא');
-  }catch(e){status('לא מחובר ל-GitHub ⚠ (בדוק הגדרות)')}
-}
-/* ---------- inventory ---------- */
+
 function qtxt(i){if(i.f)return 'סוף';return [i.q!=null?i.q:'',i.o?(i.q!=null?'ופתוח':'פתוח'):'',i.f?'סוף':'',i.t.trim()].filter(function(x){return x!==''}).join(' ')}
 function filled(i){return i.q!=null||!!i.o||!!i.f||i.t.trim()!==''}
+
 function buildText(){
   var out=['מלאי '+dstr(),'📦 מלאי מטבח - מסודר לפי קטגוריות'],short=[];
   state.cats.forEach(function(c){
@@ -253,25 +141,34 @@ function buildText(){
   short.forEach(function(s){out.push(s)});
   return out.join('\n');
 }
+
 var counts={};
-function update(){
+async function updateAndSync(){
   state.cats.forEach(function(c){
     var f=c.items.filter(filled).length,s=c.items.filter(function(i){return i.s}).length;
     if(counts[c.id])counts[c.id].textContent=f+'/'+c.items.length+(s?' · ⚠ '+s:'');
   });
-  $('pv').textContent=buildText();save();
+  $('pv').textContent=buildText();
+  
+  // Push directly to Firebase instantly on every change
+  $('sync').textContent = 'שומר ל-Firebase…';
+  var ok = await saveToFirebase(state.cats);
+  $('sync').textContent = ok ? 'מסונכרן עם Firebase ✓' : 'שגיאה בשמירה ⚠';
 }
+
 function fmt(n){return n==null?'':String(n)}
 function r2(n){return Math.round(n*100)/100}
+
 function build(){
-  counts={};reg={};var box=$('cats');box.innerHTML='';
+  counts={};var box=$('cats');box.innerHTML='';
   $('ttl').textContent='מלאי '+dstr();
-  if(!state.cats.length){var em=el('div','',"לא נטענה רשימה. ודא ש-hs.json נמצא באותה תיקייה עם index.html ושיש בו רשימה.");em.style.cssText='padding:16px;color:var(--muted)';box.appendChild(em);}
+  
   state.cats.forEach(function(c){
     var d=document.createElement('details');d.open=!!c.open;
-    d.addEventListener('toggle',function(){c.open=d.open;try{localStorage.setItem('inventory-v2',JSON.stringify({cats:state.cats}))}catch(e){}});
+    d.addEventListener('toggle',function(){c.open=d.open;});
     var sm=el('summary');sm.appendChild(el('span','cn',c.e+' '+c.n));
     var cnt=el('span','cnt');sm.appendChild(cnt);counts[c.id]=cnt;d.appendChild(sm);
+    
     c.items.forEach(function(it){
       var r=el('div','it'),top=el('div','top');
       top.appendChild(el('span','nm',it.n));
@@ -282,51 +179,47 @@ function build(){
       var q=document.createElement('input');q.className='qty';q.type='text';q.setAttribute('inputmode','decimal');q.setAttribute('aria-label','כמות');q.placeholder='–';q.value=fmt(it.q);
       var note=document.createElement('input');note.placeholder='הערה (למשל: ופתוח)';note.value=it.t;note.setAttribute('dir','auto');
       l2.appendChild(pl);l2.appendChild(q);l2.appendChild(mi);l2.appendChild(note);r.appendChild(l2);
+      
       function offEnd(){if(it.f){it.f=false;en.setAttribute('aria-pressed','false');}}
-      function sync(){q.value=fmt(it.q);r.classList.toggle('short',it.s);flag.setAttribute('aria-pressed',it.s);op.setAttribute('aria-pressed',!!it.o);en.setAttribute('aria-pressed',!!it.f);}
-      pl.onclick=function(){offEnd();it.q=r2((it.q||0)+1);sync();update();};
-      mi.onclick=function(){offEnd();it.q=Math.max(0,r2((it.q||0)-1));sync();update();};
+      function syncUI(){q.value=fmt(it.q);r.classList.toggle('short',it.s);flag.setAttribute('aria-pressed',it.s);op.setAttribute('aria-pressed',!!it.o);en.setAttribute('aria-pressed',!!it.f);}
+      
+      pl.onclick=function(){offEnd();it.q=r2((it.q||0)+1);syncUI();updateAndSync();};
+      mi.onclick=function(){offEnd();it.q=Math.max(0,r2((it.q||0)-1));syncUI();updateAndSync();};
       q.onfocus=function(){q.select()};
-      q.oninput=function(){var v=q.value.trim().replace(',','.');if(v==='')it.q=null;else if(!isNaN(Number(v))){it.q=Number(v);offEnd();}update();};
-      q.onblur=sync;
-      note.oninput=function(){it.t=note.value;if(it.t.trim())offEnd();update();};
-      en.onclick=function(){it.f=!it.f;if(it.f){it.q=null;it.o=false;it.t='';note.value='';}sync();update();};
-      op.onclick=function(){it.o=!it.o;if(it.o)offEnd();sync();update();};
-      flag.onclick=function(){it.s=!it.s;sync();update();};
-      reg[c.n+'|'+it.n]=function(){sync();note.value=it.t;};
-      sync();d.appendChild(r);
+      q.oninput=function(){var v=q.value.trim().replace(',','.');if(v==='')it.q=null;else if(!isNaN(Number(v))){it.q=Number(v);offEnd();}updateAndSync();};
+      q.onblur=syncUI;
+      note.oninput=function(){it.t=note.value;if(it.t.trim())offEnd();updateAndSync();};
+      en.onclick=function(){it.f=!it.f;if(it.f){it.q=null;it.o=false;it.t='';note.value='';}syncUI();updateAndSync();};
+      op.onclick=function(){it.o=!it.o;if(it.o)offEnd();syncUI();updateAndSync();};
+      flag.onclick=function(){it.s=!it.s;syncUI();updateAndSync();};
+      
+      syncUI();d.appendChild(r);
     });
     box.appendChild(d);
   });
-  update();
+  
+  var totalFilled = 0, totalShort = 0;
+  state.cats.forEach(function(c){
+    totalFilled += c.items.filter(filled).length;
+    totalShort += c.items.filter(function(i){return i.s}).length;
+  });
+  $('pv').textContent = buildText();
 }
+
 function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},1800);}
 function fallbackCopy(txt){var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(ta);return ok;}
+
 $('copy').onclick=function(){
   var txt=buildText(),ok='הועתק. אפשר להדביק בוואטסאפ.',bad='ההעתקה נכשלה. סמן את הטקסט ידנית.';
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(function(){toast(ok)},function(){toast(fallbackCopy(txt)?ok:bad)});}
   else toast(fallbackCopy(txt)?ok:bad);
 };
 $('wa').onclick=function(){window.open('https://wa.me/?text='+encodeURIComponent(buildText()),'_blank');};
-/* settings dialog */
-$('gear').onclick=function(){$('o').value=cfg.owner||(location.hostname.slice(-10)==='.github.io'?location.hostname.split('.')[0]:'');$('r').value=cfg.repo||(location.hostname.slice(-10)==='.github.io'?(location.pathname.split('/')[1]||''):'');$('b').value=cfg.branch||'main';$('p').value=cfg.path||'hs.json';$('t').value=cfg.token||'';$('dlg').showModal();};
-$('cfgLink').onclick=function(){
-  if(!ghOn()){$('cfgLink').textContent='קודם חבר את הטלפון הזה';return}
-  var l=location.origin+location.pathname+'#setup='+encodeURIComponent(btoa(JSON.stringify(cfg)));
-  var done=function(){$('cfgLink').textContent='הקישור הועתק ✓'};
-  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(l).then(done,function(){if(fallbackCopy(l))done()});else if(fallbackCopy(l))done();
-};
-$('cfgX').onclick=function(){$('dlg').close()};
-$('cfgOff').onclick=function(){cfg={};localStorage.removeItem('gh-cfg');loaded=false;sha=null;status('שמור בטלפון בלבד');$('dlg').close();};
-$('cfgSave').onclick=function(){
-  cfg={owner:$('o').value.trim(),repo:$('r').value.trim(),branch:$('b').value.trim()||'main',path:$('p').value.trim()||'hs.json',token:$('t').value.trim()};
-  localStorage.setItem('gh-cfg',JSON.stringify(cfg));loaded=false;$('dlg').close();connect();
-};
-document.addEventListener('visibilitychange',function(){if(!document.hidden)poll();});
-setInterval(poll,15000);
-document.addEventListener('visibilitychange',function(){if(!document.hidden){$('ttl').textContent='מלאי '+dstr();$('pv').textContent=buildText();}});
-if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
-build();connect();
+$('upd').onclick=function(){init();};
+
+document.addEventListener('visibilitychange',function(){if(!document.hidden){init();}});
+
+init();
 </script>
 </body>
 </html>
