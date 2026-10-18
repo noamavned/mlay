@@ -1,0 +1,11 @@
+{
+  "name": "מלאי מטבח",
+  "short_name": "מלאי",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "he",
+  "background_color": "#10161c",
+  "theme_color": "#1fa855"
+}
