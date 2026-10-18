@@ -62,8 +62,8 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
 <body>
 <main>
   <header>
-    <div><h1 id="ttl"></h1><div class="sub" id="sync">מסתנכרן מול Firebase…</div></div>
-    <div class="hb"><button class="btn" id="upd" disabled>רענן</button></div>
+    <div><h1 id="ttl"></h1><div class="sub" id="sync">טוען נתונים…</div></div>
+    <div class="hb"><button class="btn" id="upd">עדכן ל-Firebase</button></div>
   </header>
   <div id="cats"></div>
   <h2>ההודעה לוואטסאפ</h2><pre id="pv" dir="rtl"></pre>
@@ -86,7 +86,6 @@ var state={cats:[]};
 async function init(){
   $('sync').textContent = 'טוען נתונים מרשת…';
   try {
-    // 1. Fetch layout structure from hs.json[cite: 4]
     var res = await fetch('hs.json?t='+Date.now(), {cache:'no-store'});
     var data = await res.json();
     
@@ -102,7 +101,6 @@ async function init(){
       };
     });
 
-    // 2. Fetch live values straight from Firebase
     var remoteItems = await fetchFromFirebase();
     if(remoteItems){
       state.cats.forEach(function(c){
@@ -119,12 +117,11 @@ async function init(){
       });
     }
 
-    $('sync').textContent = 'מסונכרן עם Firebase ✓';
+    $('sync').textContent = 'מסונכרן ✓';
   } catch (e) {
     $('sync').textContent = 'שגיאה בטעינת הנתונים ⚠';
   }
   build();
-  $('upd').disabled = false;
 }
 
 function qtxt(i){if(i.f)return 'סוף';return [i.q!=null?i.q:'',i.o?(i.q!=null?'ופתוח':'פתוח'):'',i.f?'סוף':'',i.t.trim()].filter(function(x){return x!==''}).join(' ')}
@@ -143,17 +140,12 @@ function buildText(){
 }
 
 var counts={};
-async function updateAndSync(){
+function updateUI(){
   state.cats.forEach(function(c){
     var f=c.items.filter(filled).length,s=c.items.filter(function(i){return i.s}).length;
     if(counts[c.id])counts[c.id].textContent=f+'/'+c.items.length+(s?' · ⚠ '+s:'');
   });
   $('pv').textContent=buildText();
-  
-  // Push directly to Firebase instantly on every change
-  $('sync').textContent = 'שומר ל-Firebase…';
-  var ok = await saveToFirebase(state.cats);
-  $('sync').textContent = ok ? 'מסונכרן עם Firebase ✓' : 'שגיאה בשמירה ⚠';
 }
 
 function fmt(n){return n==null?'':String(n)}
@@ -183,27 +175,21 @@ function build(){
       function offEnd(){if(it.f){it.f=false;en.setAttribute('aria-pressed','false');}}
       function syncUI(){q.value=fmt(it.q);r.classList.toggle('short',it.s);flag.setAttribute('aria-pressed',it.s);op.setAttribute('aria-pressed',!!it.o);en.setAttribute('aria-pressed',!!it.f);}
       
-      pl.onclick=function(){offEnd();it.q=r2((it.q||0)+1);syncUI();updateAndSync();};
-      mi.onclick=function(){offEnd();it.q=Math.max(0,r2((it.q||0)-1));syncUI();updateAndSync();};
+      pl.onclick=function(){offEnd();it.q=r2((it.q||0)+1);syncUI();updateUI();};
+      mi.onclick=function(){offEnd();it.q=Math.max(0,r2((it.q||0)-1));syncUI();updateUI();};
       q.onfocus=function(){q.select()};
-      q.oninput=function(){var v=q.value.trim().replace(',','.');if(v==='')it.q=null;else if(!isNaN(Number(v))){it.q=Number(v);offEnd();}updateAndSync();};
+      q.oninput=function(){var v=q.value.trim().replace(',','.');if(v==='')it.q=null;else if(!isNaN(Number(v))){it.q=Number(v);offEnd();}updateUI();};
       q.onblur=syncUI;
-      note.oninput=function(){it.t=note.value;if(it.t.trim())offEnd();updateAndSync();};
-      en.onclick=function(){it.f=!it.f;if(it.f){it.q=null;it.o=false;it.t='';note.value='';}syncUI();updateAndSync();};
-      op.onclick=function(){it.o=!it.o;if(it.o)offEnd();syncUI();updateAndSync();};
-      flag.onclick=function(){it.s=!it.s;syncUI();updateAndSync();};
+      note.oninput=function(){it.t=note.value;if(it.t.trim())offEnd();updateUI();};
+      en.onclick=function(){it.f=!it.f;if(it.f){it.q=null;it.o=false;it.t='';note.value='';}syncUI();updateUI();};
+      op.onclick=function(){it.o=!it.o;if(it.o)offEnd();syncUI();updateUI();};
+      flag.onclick=function(){it.s=!it.s;syncUI();updateUI();};
       
       syncUI();d.appendChild(r);
     });
     box.appendChild(d);
   });
-  
-  var totalFilled = 0, totalShort = 0;
-  state.cats.forEach(function(c){
-    totalFilled += c.items.filter(filled).length;
-    totalShort += c.items.filter(function(i){return i.s}).length;
-  });
-  $('pv').textContent = buildText();
+  updateUI();
 }
 
 function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},1800);}
@@ -215,9 +201,15 @@ $('copy').onclick=function(){
   else toast(fallbackCopy(txt)?ok:bad);
 };
 $('wa').onclick=function(){window.open('https://wa.me/?text='+encodeURIComponent(buildText()),'_blank');};
-$('upd').onclick=function(){init();};
 
-document.addEventListener('visibilitychange',function(){if(!document.hidden){init();}});
+// Manual push to Firebase only when clicking "עדכן ל-Firebase"
+$('upd').onclick = async function(){
+  $('upd').disabled = true;
+  $('sync').textContent = 'מעדכן ל-Firebase…';
+  var ok = await saveToFirebase(state.cats);
+  $('sync').textContent = ok ? 'עודכן בהצלחה ✓' : 'שגיאה בשמירה ⚠';
+  $('upd').disabled = false;
+};
 
 init();
 </script>
