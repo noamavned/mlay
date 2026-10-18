@@ -33,21 +33,21 @@ details[open] summary::after{transform:rotate(-90deg)}
 .cn{flex:1}.cnt{color:var(--muted);font-size:13px;font-weight:400}
 .it{padding:10px 14px 12px;border-top:1px solid var(--line)}
 .it.short{background:var(--warnbg)}
-.top{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.top{display:flex;align-items:center;gap:5px;margin-bottom:7px}
 .nm{flex:1;font-weight:500}
-.sq{border:0;background:var(--chip);color:var(--ink);border-radius:9px;height:38px;min-width:42px;font:inherit;font-size:14px;cursor:pointer}
+.sq{border:0;background:var(--chip);color:var(--ink);border-radius:9px;height:38px;min-width:38px;padding:0 8px;font:inherit;font-size:13px;cursor:pointer}
 .sq.pm{font-size:22px;line-height:1}
 .flag{color:var(--muted);width:38px;min-width:38px}
 .flag[aria-pressed="true"]{background:var(--warn);color:#fff}
-.sq.open{padding:0 10px;font-size:13px;white-space:nowrap}
 .sq.open[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
-.sq.end{padding:0 10px;font-size:13px}
+.sq.yes[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
 .sq.end[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
 .l2{display:flex;gap:6px;align-items:center}
-input{min-width:0;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit;padding:9px 10px;outline:none}
+input, select{min-width:0;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit;padding:9px 10px;outline:none}
 .l2 input{flex:1}
-.l2 .qty{flex:none;width:72px;text-align:center;font-weight:600;font-size:18px}
-input:focus{border-color:var(--accent)}
+.l2 .qty{flex:none;width:60px;text-align:center;font-weight:600;font-size:18px}
+.unit-select{flex:none;width:80px;font-size:13px;cursor:pointer}
+input:focus, select:focus{border-color:var(--accent)}
 h2{font-size:15px;font-weight:600;margin:22px 0 6px}
 pre{white-space:pre-wrap;word-break:break-word;margin:0;background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:14px;font:inherit;font-size:14px}
 .bar{position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg);border-top:1px solid var(--line);display:flex;gap:8px;justify-content:center}
@@ -55,7 +55,7 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0;background:var(--card);b
 .bar .btn{border-radius:14px;padding:0 14px}
 .toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(10px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
 .toast.on{opacity:1;transform:translateX(-50%)}
-button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
 </head>
@@ -63,7 +63,7 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
 <main>
   <header>
     <div><h1 id="ttl"></h1><div class="sub" id="sync">טוען נתונים…</div></div>
-    <div class="hb"><button class="btn" id="upd">עדכן ל-Firebase</button></div>
+    <div class="hb"><button class="btn" id="upd">רענן</button></div>
   </header>
   <div id="cats"></div>
   <h2>ההודעה לוואטסאפ</h2><pre id="pv" dir="rtl"></pre>
@@ -96,7 +96,7 @@ async function init(){
         n: c.n || '',
         open: false,
         items: (c.items || []).map(function(i){
-          return { id: uid(), n: typeof i==='string'?i:i.n, q: null, o: false, f: false, t: '', s: false };
+          return { id: uid(), n: typeof i==='string'?i:i.n, q: null, o: false, f: false, y: false, u: 'יח', t: '', s: false };
         })
       };
     });
@@ -105,13 +105,16 @@ async function init(){
     if(remoteItems){
       state.cats.forEach(function(c){
         c.items.forEach(function(i){
-          var val = remoteItems[c.n + '|' + i.n];
+          var cleanKey = (c.n + '|' + i.n).replace(/[\.=#\$\[\]\/]/g, '_');
+          var val = remoteItems[cleanKey];
           if(val){
             i.q = val[0];
             i.o = !!val[1];
             i.f = !!val[2];
             i.t = val[3] || '';
             i.s = !!val[4];
+            i.y = !!val[5];
+            i.u = val[6] || 'יח';
           }
         });
       });
@@ -124,8 +127,17 @@ async function init(){
   build();
 }
 
-function qtxt(i){if(i.f)return 'סוף';return [i.q!=null?i.q:'',i.o?(i.q!=null?'ופתוח':'פתוח'):'',i.f?'סוף':'',i.t.trim()].filter(function(x){return x!==''}).join(' ')}
-function filled(i){return i.q!=null||!!i.o||!!i.f||i.t.trim()!==''}
+function qtxt(i){
+  if(i.f) return 'סוף';
+  if(i.y) return 'יש';
+  var parts = [];
+  if(i.q != null) parts.push(i.q + ' ' + (i.u === 'שקיות' ? 'שקיות' : 'יח\''));
+  if(i.o) parts.push(i.q != null ? 'ופתוח' : 'פתוח');
+  if(i.t.trim()) parts.push(i.t.trim());
+  return parts.join(' ');
+}
+
+function filled(i){return i.q!=null||!!i.o||!!i.f||!!i.y||i.t.trim()!==''}
 
 function buildText(){
   var out=['מלאי '+dstr(),'📦 מלאי מטבח - מסודר לפי קטגוריות'],short=[];
@@ -139,13 +151,22 @@ function buildText(){
   return out.join('\n');
 }
 
-var counts={};
-function updateUI(){
+var counts={}, saveTimeout = null;
+
+async function updateAndSync(){
   state.cats.forEach(function(c){
     var f=c.items.filter(filled).length,s=c.items.filter(function(i){return i.s}).length;
     if(counts[c.id])counts[c.id].textContent=f+'/'+c.items.length+(s?' · ⚠ '+s:'');
   });
   $('pv').textContent=buildText();
+
+  clearTimeout(saveTimeout);
+  $('sync').textContent = 'ממתין לשמירה…';
+  saveTimeout = setTimeout(async function(){
+    $('sync').textContent = 'שומר ל-Firebase…';
+    var ok = await saveToFirebase(state.cats);
+    $('sync').textContent = ok ? 'מסונכרן ✓' : 'שגיאה בשמירה ⚠';
+  }, 500);
 }
 
 function fmt(n){return n==null?'':String(n)}
@@ -164,32 +185,122 @@ function build(){
     c.items.forEach(function(it){
       var r=el('div','it'),top=el('div','top');
       top.appendChild(el('span','nm',it.n));
-      var en=el('button','sq end','סוף');var op=el('button','sq open','+1 פתוח');var flag=el('button','sq flag','⚠');flag.setAttribute('aria-label','חסר');top.appendChild(en);top.appendChild(op);top.appendChild(flag);
+      
+      // כפתורים בשורה עליונה: סוף, יש, +1 פתוח, ⚠
+      var en=el('button','sq end','סוף');
+      var yesBtn=el('button','sq yes','יש');
+      var op=el('button','sq open','+1 פתוח');
+      var flag=el('button','sq flag','⚠');
+      flag.setAttribute('aria-label','חסר');
+      
+      top.appendChild(en);
+      top.appendChild(yesBtn);
+      top.appendChild(op);
+      top.appendChild(flag);
       r.appendChild(top);
-      var l2=el('div','l2'),mi=el('button','sq pm','−'),pl=el('button','sq pm','+');
-      mi.setAttribute('aria-label','הפחת');pl.setAttribute('aria-label','הוסף');
-      var q=document.createElement('input');q.className='qty';q.type='text';q.setAttribute('inputmode','decimal');q.setAttribute('aria-label','כמות');q.placeholder='–';q.value=fmt(it.q);
-      var note=document.createElement('input');note.placeholder='הערה (למשל: ופתוח)';note.value=it.t;note.setAttribute('dir','auto');
-      l2.appendChild(pl);l2.appendChild(q);l2.appendChild(mi);l2.appendChild(note);r.appendChild(l2);
       
-      function offEnd(){if(it.f){it.f=false;en.setAttribute('aria-pressed','false');}}
-      function syncUI(){q.value=fmt(it.q);r.classList.toggle('short',it.s);flag.setAttribute('aria-pressed',it.s);op.setAttribute('aria-pressed',!!it.o);en.setAttribute('aria-pressed',!!it.f);}
+      // שורה שנייה: פלוס, כמות, יחידות (יח/שקיות), מינוס, הערה
+      var l2=el('div','l2');
+      var mi=el('button','sq pm','−');
+      var pl=el('button','sq pm','+');
+      mi.setAttribute('aria-label','הפחת'); pl.setAttribute('aria-label','הוסף');
       
-      pl.onclick=function(){offEnd();it.q=r2((it.q||0)+1);syncUI();updateUI();};
-      mi.onclick=function(){offEnd();it.q=Math.max(0,r2((it.q||0)-1));syncUI();updateUI();};
+      var q=document.createElement('input');
+      q.className='qty'; q.type='text'; q.setAttribute('inputmode','decimal'); q.setAttribute('aria-label','כמות'); q.placeholder='–'; q.value=fmt(it.q);
+      
+      // תיבת בחירה ליחידות (יחידות / שקיות)
+      var unitSel=document.createElement('select');
+      unitSel.className='unit-select';
+      var opt1=document.createElement('option'); opt1.value='יח'; opt1.textContent='יחידות';
+      var opt2=document.createElement('option'); opt2.value='שקיות'; opt2.textContent='שקיות';
+      unitSel.appendChild(opt1); unitSel.appendChild(opt2);
+      unitSel.value = it.u || 'יח';
+      
+      var note=document.createElement('input'); note.placeholder='הערה'; note.value=it.t; note.setAttribute('dir','auto');
+      
+      l2.appendChild(pl);
+      l2.appendChild(q);
+      l2.appendChild(unitSel);
+      l2.appendChild(mi);
+      l2.appendChild(note);
+      r.appendChild(l2);
+      
+      function clearFlags(){
+        it.f = false;
+        it.y = false;
+        en.setAttribute('aria-pressed','false');
+        yesBtn.setAttribute('aria-pressed','false');
+      }
+
+      function syncUI(){
+        q.value=fmt(it.q);
+        unitSel.value=it.u || 'יח';
+        r.classList.toggle('short',it.s);
+        flag.setAttribute('aria-pressed',it.s);
+        op.setAttribute('aria-pressed',!!it.o);
+        en.setAttribute('aria-pressed',!!it.f);
+        yesBtn.setAttribute('aria-pressed',!!it.y);
+      }
+      
+      pl.onclick=function(){clearFlags(); it.q=r2((it.q||0)+1); syncUI(); updateAndSync();};
+      mi.onclick=function(){clearFlags(); it.q=Math.max(0,r2((it.q||0)-1)); syncUI(); updateAndSync();};
+      
       q.onfocus=function(){q.select()};
-      q.oninput=function(){var v=q.value.trim().replace(',','.');if(v==='')it.q=null;else if(!isNaN(Number(v))){it.q=Number(v);offEnd();}updateUI();};
+      q.oninput=function(){
+        var v=q.value.trim().replace(',','.');
+        if(v==='') it.q=null;
+        else if(!isNaN(Number(v))){ it.q=Number(v); clearFlags(); }
+        updateAndSync();
+      };
       q.onblur=syncUI;
-      note.oninput=function(){it.t=note.value;if(it.t.trim())offEnd();updateUI();};
-      en.onclick=function(){it.f=!it.f;if(it.f){it.q=null;it.o=false;it.t='';note.value='';}syncUI();updateUI();};
-      op.onclick=function(){it.o=!it.o;if(it.o)offEnd();syncUI();updateUI();};
-      flag.onclick=function(){it.s=!it.s;syncUI();updateUI();};
       
-      syncUI();d.appendChild(r);
+      unitSel.onchange=function(){
+        it.u = unitSel.value;
+        updateAndSync();
+      };
+      
+      note.oninput=function(){
+        it.t=note.value;
+        if(it.t.trim()) clearFlags();
+        updateAndSync();
+      };
+      
+      en.onclick=function(){
+        it.f=!it.f;
+        if(it.f){ it.q=null; it.o=false; it.y=false; it.t=''; note.value=''; yesBtn.setAttribute('aria-pressed','false'); }
+        syncUI(); updateAndSync();
+      };
+      
+      yesBtn.onclick=function(){
+        it.y=!it.y;
+        if(it.y){ it.q=null; it.o=false; it.f=false; it.t=''; note.value=''; en.setAttribute('aria-pressed','false'); }
+        syncUI(); updateAndSync();
+      };
+      
+      op.onclick=function(){
+        it.o=!it.o;
+        if(it.o) { it.f=false; it.y=false; en.setAttribute('aria-pressed','false'); yesBtn.setAttribute('aria-pressed','false'); }
+        syncUI(); updateAndSync();
+      };
+      
+      flag.onclick=function(){
+        it.s=!it.s;
+        syncUI(); updateAndSync();
+      };
+      
+      syncUI(); d.appendChild(r);
     });
     box.appendChild(d);
   });
   updateUI();
+}
+
+function updateUI(){
+  state.cats.forEach(function(c){
+    var f=c.items.filter(filled).length,s=c.items.filter(function(i){return i.s}).length;
+    if(counts[c.id])counts[c.id].textContent=f+'/'+c.items.length+(s?' · ⚠ '+s:'');
+  });
+  $('pv').textContent=buildText();
 }
 
 function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},1800);}
@@ -201,15 +312,7 @@ $('copy').onclick=function(){
   else toast(fallbackCopy(txt)?ok:bad);
 };
 $('wa').onclick=function(){window.open('https://wa.me/?text='+encodeURIComponent(buildText()),'_blank');};
-
-// Manual push to Firebase only when clicking "עדכן ל-Firebase"
-$('upd').onclick = async function(){
-  $('upd').disabled = true;
-  $('sync').textContent = 'מעדכן ל-Firebase…';
-  var ok = await saveToFirebase(state.cats);
-  $('sync').textContent = ok ? 'עודכן בהצלחה ✓' : 'שגיאה בשמירה ⚠';
-  $('upd').disabled = false;
-};
+$('upd').onclick = function(){ init(); };
 
 init();
 </script>
