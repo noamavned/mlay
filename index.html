@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="מלאי">
 <meta name="theme-color" content="#1fa855">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-512.ico">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>מלאי מטבח</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap">
 <style>
@@ -92,6 +92,7 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
   <label for="b">ענף (branch)</label><input id="b" dir="ltr" value="main" autocapitalize="off">
   <label for="p">קובץ הנתונים</label><input id="p" dir="ltr" value="hs.json" autocapitalize="off">
   <label for="t">טוקן (Fine-grained, Contents: read and write)</label><input id="t" type="password" dir="ltr" autocomplete="off">
+  <button class="btn" id="cfgLink" style="margin-top:12px;width:100%">העתק קישור הגדרה לטלפון אחר</button>
   <div class="dr"><button class="copy" id="cfgSave">שמור והתחבר</button><button class="btn" id="cfgOff">נתק</button><button class="btn" id="cfgX">סגור</button></div>
 </dialog>
 
@@ -133,6 +134,7 @@ function ser(){return state.cats.map(function(c){return {e:c.e,n:c.n,items:c.ite
 })}})}
 /* ---------- GitHub file sync ---------- */
 var cfg={};try{cfg=JSON.parse(localStorage.getItem('gh-cfg'))||{}}catch(e){}
+(function(){var h=location.hash;if(h.indexOf('#setup=')===0){try{var c=JSON.parse(atob(decodeURIComponent(h.slice(7))));if(c&&c.owner&&c.repo&&c.token){cfg=c;localStorage.setItem('gh-cfg',JSON.stringify(c));}}catch(e){}history.replaceState(null,'',location.pathname);}})();
 var sha=null,timer=null,busy=false,dirty=false,loaded=false,quiet=false;
 function ghOn(){return !!(cfg.owner&&cfg.repo&&cfg.token)}
 function url(){return 'https://api.github.com/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+(cfg.path||'hs.json')}
@@ -141,36 +143,80 @@ function enc(s){var b=new TextEncoder().encode(s),r='';for(var i=0;i<b.length;i+
 function dec(s){var r=atob(s.replace(/\n/g,'')),b=new Uint8Array(r.length);for(var i=0;i<r.length;i++)b[i]=r.charCodeAt(i);return new TextDecoder().decode(b)}
 function status(t){$('sync').textContent=t}
 function get(){return fetch(url()+'?ref='+(cfg.branch||'main')+'&t='+Date.now(),{headers:hdr()})}
-async function pull(){
-  status('טוען מ-GitHub…');
+var reg={},base={},DEF='[null,false,false,"",false]';
+function key(c,i){return c.n+'|'+i.n}
+function snap(cats){var m={};cats.forEach(function(c){c.items.forEach(function(i){m[key(c,i)]=JSON.stringify([i.q==null?null:i.q,!!i.o,!!i.f,i.t||'',!!i.s])})});return m}
+function dirtyKeys(){var cur=snap(state.cats),d=[];for(var k in cur)if(cur[k]!==(base[k]||DEF))d.push(k);return d}
+function saveBase(){try{localStorage.setItem('inventory-base',JSON.stringify(base))}catch(e){}}
+function sameStruct(a,b){
+  if(a.length!==b.length)return false;
+  for(var x=0;x<a.length;x++){
+    if(a[x].n!==b[x].n||a[x].items.length!==b[x].items.length)return false;
+    for(var y=0;y<a[x].items.length;y++)if(a[x].items[y].n!==b[x].items[y].n)return false;
+  }
+  return true;
+}
+function cp(to,from){to.q=from.q==null?null:from.q;to.o=!!from.o;to.f=!!from.f;to.t=from.t||'';to.s=!!from.s}
+/* merge the remote list into ours; items this phone changed and hasn't saved yet are kept. returns true if the page must be rebuilt */
+function applyRemote(rc,keepDirty){
+  var dk=keepDirty?dirtyKeys():[],rebuild=false;
+  if(!sameStruct(state.cats,rc)){
+    var loc={},opn={};
+    state.cats.forEach(function(c){opn[c.n]=c.open;c.items.forEach(function(i){loc[key(c,i)]=i})});
+    rc.forEach(function(c){c.open=!!opn[c.n];c.items.forEach(function(i){var k=key(c,i);if(dk.indexOf(k)>-1&&loc[k])cp(i,loc[k])})});
+    state.cats=rc;rebuild=true;
+  }else{
+    state.cats.forEach(function(c,ci){c.items.forEach(function(i,ii){
+      var k=key(c,i);if(dk.indexOf(k)>-1)return;
+      var r=rc[ci].items[ii];
+      if((r.q==null?null:r.q)!==i.q||!!r.o!==!!i.o||!!r.f!==!!i.f||(r.t||'')!==(i.t||'')||!!r.s!==!!i.s){cp(i,r);if(reg[k])reg[k]();}
+    })});
+  }
+  base=snap(rc);saveBase();
+  return rebuild;
+}
+async function load(){
   var r=await get();
-  if(r.status===404){sha=null;loaded=true;status('הקובץ ייווצר בשמירה הראשונה');return 'new'}
+  if(r.status===404){sha=null;return {rc:null}}
   if(!r.ok)throw new Error(r.status);
   var j=await r.json();sha=j.sha;
   var d=null;try{d=JSON.parse(dec(j.content||''))}catch(e){}
-  loaded=true;
-  var cats=d&&norm(d);if(cats){state.cats=cats;status('מסונכרן ✓');return 'ok'}
-  return 'new';
+  return {rc:d&&norm(d)};
 }
 async function push(){
   if(!ghOn()||!loaded)return;
   if(busy){dirty=true;return}
   busy=true;dirty=false;status('שומר…');
+  var ok=false;
   try{
-    var body={message:'מלאי '+dstr(),content:enc(JSON.stringify({cats:ser()},null,1)),branch:cfg.branch||'main'};
-    if(sha)body.sha=sha;
-    var r=await fetch(url(),{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},hdr()),body:JSON.stringify(body)});
-    if((r.status===409||r.status===422)&&!push.retry){
-      var g=await get();if(g.ok){sha=(await g.json()).sha;push.retry=true;busy=false;await push();push.retry=false;return}
+    for(var t=0;t<3&&!ok;t++){
+      var o=await load();
+      if(o.rc&&applyRemote(o.rc,true)){quiet=true;build();quiet=false;}
+      var body={message:'מלאי '+dstr(),content:enc(JSON.stringify({cats:ser()},null,1)),branch:cfg.branch||'main'};
+      if(sha)body.sha=sha;
+      var w=await fetch(url(),{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},hdr()),body:JSON.stringify(body)});
+      if(w.status===409||w.status===422)continue;
+      if(!w.ok)throw new Error(w.status);
+      sha=(await w.json()).content.sha;base=snap(state.cats);saveBase();ok=true;
     }
-    if(!r.ok)throw new Error(r.status);
-    sha=(await r.json()).content.sha;status('נשמר ב-GitHub ✓');
+    status(ok?'נשמר ב-GitHub ✓':'שגיאת שמירה ⚠ (נשמר בטלפון)');
   }catch(e){status('שגיאת שמירה ⚠ (נשמר בטלפון)')}
   busy=false;if(dirty)push();
 }
 function save(){
   try{localStorage.setItem('inventory-v2',JSON.stringify({cats:state.cats}));}catch(e){}
-  if(ghOn()&&loaded&&!quiet){clearTimeout(timer);timer=setTimeout(function(){timer=null;push()},2500);}
+  if(ghOn()&&loaded&&!quiet){clearTimeout(timer);timer=setTimeout(function(){timer=null;push()},2000);}
+}
+/* every ~15s (and when the app comes back to the screen) pick up what other phones saved */
+async function poll(){
+  if(document.hidden||!ghOn()||!loaded||timer||busy)return;
+  var a=document.activeElement;if(a&&a.tagName==='INPUT')return;
+  try{
+    var prev=sha,o=await load();
+    if(sha===prev||!o.rc)return;
+    if(applyRemote(o.rc,true)){quiet=true;build();quiet=false;}
+    quiet=true;update();quiet=false;status('מסונכרן ✓');
+  }catch(e){}
 }
 async function readOnly(){
   try{
@@ -182,10 +228,17 @@ async function readOnly(){
 }
 async function connect(){
   if(!ghOn()){await readOnly();return}
-  try{var res=await pull();quiet=true;build();quiet=false;if(res==='new'&&state.cats.length){await push()}}
-  catch(e){status('לא מחובר ל-GitHub ⚠ (בדוק הגדרות)')}
+  try{
+    status('טוען מ-GitHub…');
+    var o=await load(),hadBase=false;
+    try{var b=JSON.parse(localStorage.getItem('inventory-base'));if(b&&typeof b==='object'){base=b;hadBase=true}}catch(e){}
+    if(!hadBase)base={};
+    loaded=true;
+    if(o.rc){applyRemote(o.rc,hadBase);quiet=true;build();quiet=false;status('מסונכרן ✓');if(dirtyKeys().length)push();}
+    else if(state.cats.length){push();}
+    else status('hs.json ריק או לא נמצא');
+  }catch(e){status('לא מחובר ל-GitHub ⚠ (בדוק הגדרות)')}
 }
-
 /* ---------- inventory ---------- */
 function qtxt(i){if(i.f)return 'סוף';return [i.q!=null?i.q:'',i.o?(i.q!=null?'ופתוח':'פתוח'):'',i.f?'סוף':'',i.t.trim()].filter(function(x){return x!==''}).join(' ')}
 function filled(i){return i.q!=null||!!i.o||!!i.f||i.t.trim()!==''}
@@ -211,7 +264,7 @@ function update(){
 function fmt(n){return n==null?'':String(n)}
 function r2(n){return Math.round(n*100)/100}
 function build(){
-  counts={};var box=$('cats');box.innerHTML='';
+  counts={};reg={};var box=$('cats');box.innerHTML='';
   $('ttl').textContent='מלאי '+dstr();
   if(!state.cats.length){var em=el('div','',"לא נטענה רשימה. ודא ש-hs.json נמצא באותה תיקייה עם index.html ושיש בו רשימה.");em.style.cssText='padding:16px;color:var(--muted)';box.appendChild(em);}
   state.cats.forEach(function(c){
@@ -240,6 +293,7 @@ function build(){
       en.onclick=function(){it.f=!it.f;if(it.f){it.q=null;it.o=false;it.t='';note.value='';}sync();update();};
       op.onclick=function(){it.o=!it.o;if(it.o)offEnd();sync();update();};
       flag.onclick=function(){it.s=!it.s;sync();update();};
+      reg[c.n+'|'+it.n]=function(){sync();note.value=it.t;};
       sync();d.appendChild(r);
     });
     box.appendChild(d);
@@ -256,15 +310,20 @@ $('copy').onclick=function(){
 $('wa').onclick=function(){window.open('https://wa.me/?text='+encodeURIComponent(buildText()),'_blank');};
 /* settings dialog */
 $('gear').onclick=function(){$('o').value=cfg.owner||(location.hostname.slice(-10)==='.github.io'?location.hostname.split('.')[0]:'');$('r').value=cfg.repo||(location.hostname.slice(-10)==='.github.io'?(location.pathname.split('/')[1]||''):'');$('b').value=cfg.branch||'main';$('p').value=cfg.path||'hs.json';$('t').value=cfg.token||'';$('dlg').showModal();};
+$('cfgLink').onclick=function(){
+  if(!ghOn()){$('cfgLink').textContent='קודם חבר את הטלפון הזה';return}
+  var l=location.origin+location.pathname+'#setup='+encodeURIComponent(btoa(JSON.stringify(cfg)));
+  var done=function(){$('cfgLink').textContent='הקישור הועתק ✓'};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(l).then(done,function(){if(fallbackCopy(l))done()});else if(fallbackCopy(l))done();
+};
 $('cfgX').onclick=function(){$('dlg').close()};
 $('cfgOff').onclick=function(){cfg={};localStorage.removeItem('gh-cfg');loaded=false;sha=null;status('שמור בטלפון בלבד');$('dlg').close();};
 $('cfgSave').onclick=function(){
   cfg={owner:$('o').value.trim(),repo:$('r').value.trim(),branch:$('b').value.trim()||'main',path:$('p').value.trim()||'hs.json',token:$('t').value.trim()};
   localStorage.setItem('gh-cfg',JSON.stringify(cfg));loaded=false;$('dlg').close();connect();
 };
-document.addEventListener('visibilitychange',function(){
-  if(!document.hidden&&ghOn()&&loaded&&!timer&&!busy){pull().then(function(){quiet=true;build();quiet=false;}).catch(function(){});}
-});
+document.addEventListener('visibilitychange',function(){if(!document.hidden)poll();});
+setInterval(poll,15000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden){$('ttl').textContent='מלאי '+dstr();$('pv').textContent=buildText();}});
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
 build();connect();
