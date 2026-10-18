@@ -17,7 +17,6 @@ async function saveToFirebase(cats) {
   cats.forEach(function(c) {
     c.items.forEach(function(i) {
       var a = [i.q == null ? null : i.q, !!i.o, !!i.f, i.t || '', !!i.s];
-      // Only save items that have non-default states
       if (JSON.stringify(a) !== '[null,false,false,"",false]') {
         m[c.n + '|' + i.n] = a;
       }
