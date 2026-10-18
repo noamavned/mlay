@@ -16,9 +16,11 @@ async function saveToFirebase(cats) {
   var m = {};
   cats.forEach(function(c) {
     c.items.forEach(function(i) {
-      var a = [i.q == null ? null : i.q, !!i.o, !!i.f, i.t || '', !!i.s];
-      if (JSON.stringify(a) !== '[null,false,false,"",false]') {
-        m[c.n + '|' + i.n] = a;
+      // מבנה נתונים מעודכן: [כמות, פתוח, סוף, הערה, חסר, יש, יחידות]
+      var a = [i.q == null ? null : i.q, !!i.o, !!i.f, i.t || '', !!i.s, !!i.y, i.u || 'יח'];
+      if (JSON.stringify(a) !== '[null,false,false,"",false,false,"יח"]') {
+        var cleanKey = (c.n + '|' + i.n).replace(/[\.=#\$\[\]\/]/g, '_');
+        m[cleanKey] = a;
       }
     });
   });
@@ -29,7 +31,12 @@ async function saveToFirebase(cats) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items: m, t: new Date().toISOString() })
     });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    
+    if (!r.ok) {
+      var errText = await r.text();
+      console.error('Firebase Error Details:', errText);
+      throw new Error('HTTP ' + r.status);
+    }
     return true;
   } catch (e) {
     console.error('Firebase write failed:', e);
